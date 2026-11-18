@@ -78,7 +78,7 @@ const DEF_SITE = {
   left:'VIBE, 바이브', leftSub:'AERO', right:'BETA, 베타', rightSub:'FULMEN',
   top:'MIGDAL BAVEL · GENESIS 11', footL:'MIGDAL BAVEL', footR:'ETERNAL, UNTIL RUIN.', ruin:'RUIN · 32.5364° N',
   hybris:'87.4%', showEdit:true,
-  homeTitle:'MIGDAL BAVEL', homeSub:'영원히, 무너질 때까지 — 바이브와 베타의 기록',
+  homeTitle:'MIGDAL BAVEL', homeSub:'소개 문구',
   chatDesc:'대화 그대로. 말풍선으로 남긴 발췌.', novelDesc:'문장으로 다시 쓴 장면들. 소설 형식의 발췌.'
 };
 
@@ -506,7 +506,7 @@ function wirePanel(){
   confirmBtn($('styleReset'), '한 번 더 누르면 되돌려요', () => { data.style = Object.assign({}, DEF_STYLE[MODE]); save(); applyStyle(); render(); fillPanel(); toast('스타일을 기본값으로 되돌렸어요'); });
 
   if(MODE !== 'home'){
-    $('addBtn').onclick = () => { data.items.push({title:'새 판', sub:'', tag:'ETERNAL', hybris:data.site.hybris, source:'', author:'', log:''}); save(); go(data.items.length-1); P.querySelector('[data-item=log]').focus(); };
+    $('addBtn').onclick = () => { data.items.push(MODE === 'chat' ? {title:'제목', sub:'', tag:'ETERNAL', hybris:data.site.hybris, source:'출처', author:'작가', log:'N: 나레이션\nVIBE: 대사\nBETA: 대사'} : {title:'제목', sub:'부제', tag:'ETERNAL', hybris:data.site.hybris, source:'출처', author:'작가', log:'본문'}); save(); go(data.items.length-1); P.querySelector('[data-item=log]').focus(); };
     $('dupBtn').onclick = () => { if(!data.items[idx]) return; data.items.splice(idx+1, 0, clone(data.items[idx])); save(); go(idx+1); toast('복제했어요'); };
     $('upBtn').onclick = () => move(-1); $('downBtn').onclick = () => move(1);
     confirmBtn($('unrichBtn'), '한 번 더 누르면 지워요', () => { const it = data.items[idx]; if(!it) return; delete it.html; save(); render(); fillPanel(); toast('본문 칸 내용으로 다시 그렸어요'); });

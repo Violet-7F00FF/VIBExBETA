@@ -97,6 +97,7 @@ const DEF_TPL = {
 function normalize(){
   data.tpl  = Object.assign({}, DEF_TPL[MODE], data.tpl || {});
   data.lock = Object.assign({}, data.lock || {});
+  if(!Array.isArray(data.tpls)) data.tpls = [];
   /* 다른 페이지(CHAT/NOVEL)에서 보내온 템플릿이 있으면 적용 */
   try{ const pk = 'migdal-bavel-tplpush-' + MODE, push = JSON.parse(localStorage.getItem(pk));
     if(push){ LOCKABLE.forEach(k => { if(k in push.tpl) data.tpl[k] = push.tpl[k]; data.lock[k] = !!push.lock[k]; }); localStorage.removeItem(pk); data._pushed = 1; } }catch(e){}
@@ -117,7 +118,11 @@ function save(){ delete data._pushed; data.savedAt = Date.now(); try{ localStora
 if(data._pushed) save();
 /* 고정(잠금)된 항목은 템플릿 값을, 아니면 판의 값을 씀 */
 const val = (it, k) => String((LOCKABLE.includes(k) && data.lock[k]) ? (data.tpl[k] || '') : ((it && it[k]) || ''));
-const newItem = () => { const t = data.tpl; return {title:t.title||'', sub:t.sub||'', tag:t.tag||'', hybris:t.hybris||'', genre:t.genre||'', chara:t.chara||'', maker:t.maker||'', log:t.log||''}; };
+const newItem = () => {
+  const t = data.tpl, base = {title:t.title||'', sub:t.sub||'', tag:t.tag||'', hybris:t.hybris||'', genre:t.genre||'', chara:t.chara||'', maker:t.maker||'', log:t.log||''};
+  const d = (data.tpls || []).find(x => x.id === data.tplDefault);
+  return d && d.item ? Object.assign(base, clone(d.item)) : base;
+};
 
 /* ------------------------------------------------------------------ svg bits */
 const SP = (c, s=20) => `<svg width="${s}" height="${s}" viewBox="-10 -10 20 20"><path d="M0-10Q0 0 10 0Q0 0 0 10Q0 0-10 0Q0 0 0-10Z" style="fill:${c}"/></svg>`;
@@ -449,6 +454,13 @@ function buildPanel(){
   const other = MODE === 'chat' ? 'NOVEL' : 'CHAT';
   const tplTab = MODE === 'home' ? '' : `
     <div class="tab" data-tab="tpl">
+      <div class="sec"><div class="sh">내 템플릿</div>
+        <div class="help">지금 판을 <b>글·직접 꾸민 서식·색·폰트·크기</b>까지 통째로 저장해요. 여러 개 저장해두고 골라 쓰세요.</div>
+        <div class="tplsave"><input type="text" id="tplName" placeholder="템플릿 이름 (예: 관찰기록 · 밤 테마)"><button class="btn pri" id="tplSaveBtn">저장</button></div>
+        <div class="incrow"><span>같이 저장:</span><label class="chk"><input type="checkbox" id="incText" checked> 글·문구</label><label class="chk"><input type="checkbox" id="incRich" checked> 꾸민 서식</label><label class="chk"><input type="checkbox" id="incStyle" checked> 색·폰트·크기</label></div>
+        <div id="tplList"></div>
+        <label class="f" style="margin-top:14px"><span>+ 새 판 누를 때 쓸 템플릿</span><select id="tplDefault"></select></label>
+      </div>
       <div class="sec"><div class="sh">고정 문구</div>
         <div class="help">여기 적은 값은 <b>새 판</b>을 만들 때 자동으로 들어가요.<br><b>고정</b>을 켜면 <b>모든 판</b>이 이 값을 쓰고, 판마다 따로 못 바꿔요. (제작자처럼 늘 같은 건 고정 추천)</div>
         ${TPL_ROWS.map(r => `<div class="tplrow"><label class="f"><span>${r[1]}</span><input type="text" data-tpl="${r[0]}"></label><label class="chk lockchk"><input type="checkbox" data-lock="${r[0]}"> 고정</label></div>`).join('')}
@@ -610,6 +622,10 @@ function wirePanel(){
     $('addBtn').onclick = () => { data.items.push(newItem()); save(); go(data.items.length-1); P.querySelector('[data-item=log]').focus(); };
     $('tplFromBtn').onclick = () => { const it = data.items[idx]; if(!it) return; ['title','sub','genre','chara','maker','tag','hybris','log'].forEach(k => { if(!(LOCKABLE.includes(k) && data.lock[k])) data.tpl[k] = it[k] || ''; }); save(); fillPanel(); toast('지금 판을 템플릿으로 저장했어요'); };
     confirmBtn($('tplToBtn'), '한 번 더 누르면 덮어써요', () => { const it = data.items[idx]; if(!it) return; Object.assign(it, newItem()); delete it.html; save(); render(); fillPanel(); toast('템플릿을 지금 판에 적용했어요'); });
+    $('tplSaveBtn').onclick = saveTpl;
+    $('tplName').addEventListener('keydown', e => { if(e.key === 'Enter') saveTpl(); });
+    $('tplDefault').onchange = e => { data.tplDefault = e.target.value || null; save(); renderTplList(); toast(e.target.value ? '새 판은 이 템플릿으로 만들어져요' : '새 판은 기본 내용으로 만들어져요'); };
+    renderTplList();
     $('tplPushBtn').onclick = () => {
       const t = {}, l = {}; LOCKABLE.forEach(k => { t[k] = data.tpl[k]; l[k] = !!data.lock[k]; });
       try{ localStorage.setItem('migdal-bavel-tplpush-' + (MODE === 'chat' ? 'novel' : 'chat'), JSON.stringify({tpl:t, lock:l})); toast((MODE === 'chat' ? 'NOVEL' : 'CHAT') + ' 페이지를 열면 적용돼요'); }
@@ -897,6 +913,78 @@ function wireLive(){
 function hlCss(c){ return c ? `linear-gradient(transparent 56%, color-mix(in srgb, ${c} 45%, transparent) 56%)` : 'none'; }
 
 /* ------------------------------------------------------------------ nav */
+/* ------------------------------------------------------------------ 템플릿 여러 개 */
+function snapTpl(t){
+  const it = data.items[idx] || {}, inc = {text:$('incText').checked, rich:$('incRich').checked, style:$('incStyle').checked};
+  if(!inc.text && !inc.rich && !inc.style){ toast('저장할 걸 하나 이상 골라주세요'); return null; }
+  t.item = null; t.style = null;
+  if(inc.text || inc.rich){
+    t.item = {};
+    if(inc.text) ['title','sub','genre','chara','maker','tag','hybris','log'].forEach(k => t.item[k] = it[k] || '');
+    if(inc.rich && typeof it.html === 'string') t.item.html = it.html;
+    if(!Object.keys(t.item).length) t.item = null;
+  }
+  if(inc.style) t.style = clone(data.style);
+  t.inc = inc; t.at = Date.now();
+  return t;
+}
+function saveTpl(){
+  const name = $('tplName').value.trim() || `템플릿 ${data.tpls.length + 1}`;
+  const t = snapTpl({id: 't' + Date.now().toString(36), name}); if(!t) return;
+  data.tpls.push(t); save(); $('tplName').value = ''; renderTplList(); toast(`‘${name}’ 저장했어요`);
+}
+function applyTpl(t, asNew){
+  if(asNew){
+    const it = Object.assign(newItem(), t.item ? clone(t.item) : {});
+    if(!(t.item && 'html' in t.item)) delete it.html;
+    data.items.splice(idx + 1, 0, it); idx++;
+  } else if(t.item){
+    const it = data.items[idx]; if(it){ Object.assign(it, clone(t.item)); if(!('html' in t.item) && 'log' in t.item) delete it.html; }
+  }
+  if(t.style) data.style = Object.assign({}, DEF_STYLE[MODE], clone(t.style));
+  save(); applyStyle(); rerenderKeep(); fillPanel(); renderTplList();
+  toast(asNew ? `‘${t.name}’으로 새 판을 만들었어요` : `‘${t.name}’ 적용했어요`);
+}
+function renderTplList(){
+  const box = $('tplList'); if(!box) return;
+  const tags = t => [t.item && ('log' in t.item) ? '글' : '', t.item && t.item.html ? '서식' : '', t.style ? '색·폰트' : ''].filter(Boolean).join(' · ');
+  const date = ms => { const d = new Date(ms); return `${d.getMonth()+1}/${d.getDate()} ${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+  box.innerHTML = data.tpls.length ? data.tpls.map((t,i) => {
+    const c = t.style || data.style;
+    return `<div class="tcard" data-i="${i}">
+      <div class="tsw${t.style ? '' : ' dim'}" style="background:${c.bg}"><i style="background:${c.card};border-color:${c.line}"></i><b style="background:${c.cL}"></b><b style="background:${c.cR}"></b><u style="background:${c.ink}"></u></div>
+      <div class="tinfo"><div class="tn">${esc(t.name)}</div><div class="tm">${tags(t)} · ${date(t.at)}${data.tplDefault === t.id ? ' · <em class="def">새 판 기본</em>' : ''}</div></div>
+      <div class="tbtns"><button class="btn pri" data-ta="apply">적용</button><button class="btn" data-ta="new">새 판으로</button><button class="btn" data-ta="over">덮어쓰기</button><button class="btn" data-ta="ren">이름</button><button class="btn del" data-ta="del">삭제</button></div>
+    </div>`;
+  }).join('') : '<div class="tempty">아직 저장한 템플릿이 없어요. 판을 꾸민 다음 위에서 이름을 적고 저장해 보세요.</div>';
+  const sel = $('tplDefault');
+  sel.innerHTML = `<option value="">기본 (아래 고정 문구·기본 내용)</option>` + data.tpls.filter(t => t.item).map(t => `<option value="${t.id}" ${data.tplDefault === t.id ? 'selected' : ''}>${esc(t.name)}</option>`).join('');
+  box.querySelectorAll('.tcard').forEach(card => {
+    const t = data.tpls[+card.dataset.i];
+    card.querySelectorAll('[data-ta]').forEach(b => {
+      const a = b.dataset.ta;
+      if(a === 'new') b.onclick = () => applyTpl(t, true);
+      if(a === 'apply') armed(b, t.item ? '지금 판 덮어써요 · 한 번 더' : null, () => applyTpl(t, false));
+      if(a === 'over') armed(b, '지금 판으로 덮어써요 · 한 번 더', () => { const n = snapTpl(t); if(n){ save(); renderTplList(); toast(`‘${t.name}’을 지금 판으로 덮어썼어요`); } });
+      if(a === 'del') armed(b, '한 번 더 누르면 삭제', () => { data.tpls.splice(+card.dataset.i, 1); if(data.tplDefault === t.id) data.tplDefault = null; save(); renderTplList(); toast('삭제했어요'); });
+      if(a === 'ren') b.onclick = () => {
+        const tn = card.querySelector('.tn'); const inp = document.createElement('input'); inp.type = 'text'; inp.value = t.name; inp.className = 'trename';
+        tn.replaceWith(inp); inp.focus(); inp.select();
+        const done = () => { t.name = inp.value.trim() || t.name; save(); renderTplList(); };
+        inp.addEventListener('keydown', e => { if(e.key === 'Enter') done(); if(e.key === 'Escape') renderTplList(); });
+        inp.addEventListener('blur', done);
+      };
+    });
+  });
+}
+function armed(btn, armText, fn){
+  if(!armText){ btn.onclick = fn; return; }
+  const orig = btn.textContent;
+  btn.onclick = () => {
+    if(btn.dataset.arm !== '1'){ btn.dataset.arm = '1'; btn.textContent = armText; setTimeout(() => { if(btn.isConnected){ btn.dataset.arm = ''; btn.textContent = orig; } }, 2500); return; }
+    btn.dataset.arm = ''; btn.textContent = orig; fn();
+  };
+}
 function rerenderKeep(){ const y = idx; render(); idx = y; }
 function go(i){ if(i < 0 || i >= data.items.length) return; idx = i; render(); if($('panel').classList.contains('on')) fillPanel(); }
 function move(dir){

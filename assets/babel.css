@@ -244,3 +244,7 @@ body.live .livehint{display:block;}
 .f input:disabled{color:#8A909C;background:#F2F4F7;cursor:not-allowed;}
 .emb svg{display:block;}
 @media (max-width:760px){ .bar{justify-content:flex-start;overflow-x:auto;scrollbar-width:none;} .bar::-webkit-scrollbar{display:none;} .tb,.list{flex:none;} .menu{position:fixed;bottom:70px;left:50%;} }
+
+/* 상단 줄: 엠블럼 기준 좌우 대칭 (가운데 칸 = 엠블럼 72px + 양쪽 여백 12px) */
+.tpg{position:absolute;display:grid;grid-template-columns:1fr 96px 1fr;align-items:center;}
+.tpg .hs{display:flex;align-items:center;gap:12px;min-width:0;}

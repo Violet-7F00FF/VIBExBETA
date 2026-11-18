@@ -201,6 +201,7 @@ function layout(){
   $('holder').style.width = W * s + 'px'; $('holder').style.height = H * s + 'px';
   $('board').style.transform = `scale(${s})`;
 }
+const pt = px => Math.round(px * .75 * 2) / 2;   /* px → pt (0.5 단위) */
 /* 글이 판보다 길면 글자 크기를 자동으로 줄여서 맞춤 */
 let overflow = false;
 function fit(){
@@ -208,7 +209,7 @@ function fit(){
   const base = +data.style.fs; let f = base; c.style.fontSize = f + 'px';
   if(data.style.autofit){ let g = 0; while(c.scrollHeight > st.clientHeight + 1 && f > base * .4 && g++ < 80){ f -= .5; c.style.fontSize = f + 'px'; } }
   overflow = c.scrollHeight > st.clientHeight + 1;
-  const w = $('warn'); if(w){ w.classList.toggle('on', overflow || f < base - .01); w.textContent = overflow ? '글이 판에 다 안 들어가요. 본문을 줄이거나 발췌를 나눠주세요.' : `판에 맞추려고 글자를 ${base}px → ${f}px 로 줄였어요.`; }
+  const w = $('warn'); if(w){ w.classList.toggle('on', overflow || f < base - .01); w.textContent = overflow ? '글이 판에 다 안 들어가요. 본문을 줄이거나 발췌를 나눠주세요.' : `판에 맞추려고 글자를 ${pt(base)}pt → ${pt(f)}pt 로 줄였어요.`; }
 }
 
 /* ------------------------------------------------------------------ text */
@@ -405,7 +406,7 @@ async function copyImage(fromShot){
 
 /* ------------------------------------------------------------------ panel */
 const SLIDERS = [
-  ['fs','글자 크기',12,44,.5,'px'],
+  ['fs','글자 크기',9,33,.5,'pt'],
   ['ts','제목 크기 (본문 대비)',.7,3,.05,'배'],
   ['fw','본문 굵기',100,900,100,''],
   ['tw','제목 굵기',100,900,100,''],
@@ -554,9 +555,9 @@ function fillPanel(){
   P.querySelectorAll('[data-lock]').forEach(el => el.checked = !!data.lock[el.dataset.lock]);
   const rich = typeof it.html === 'string';
   if($('richNote')){ $('richNote').classList.toggle('on', rich); P.querySelector('[data-item=log]').disabled = rich; P.querySelector('[data-item=log]').style.opacity = rich ? .45 : 1; }
-  P.querySelectorAll('[data-style]').forEach(el => { const k = el.dataset.style; if(el.type === 'checkbox') el.checked = !!st[k]; else if(document.activeElement !== el) el.value = st[k]; });
+  P.querySelectorAll('[data-style]').forEach(el => { const k = el.dataset.style; if(el.type === 'checkbox') el.checked = !!st[k]; else if(document.activeElement !== el) el.value = (k === 'fs' ? pt(st.fs) : st[k]); });
   P.querySelectorAll('[data-hex]').forEach(el => el.textContent = String(st[el.dataset.hex]).toUpperCase());
-  P.querySelectorAll('[data-out]').forEach(el => { const s = SLIDERS.find(x => x[0]===el.dataset.out); el.textContent = (+st[s[0]]).toString() + s[5]; });
+  P.querySelectorAll('[data-out]').forEach(el => { const s = SLIDERS.find(x => x[0]===el.dataset.out); el.textContent = (s[0]==='fs' ? pt(st.fs) : +st[s[0]]).toString() + s[5]; });
   P.querySelectorAll('[data-seg]').forEach(g => g.querySelectorAll('button').forEach(b => b.classList.toggle('on', String(st[g.dataset.seg]) === b.dataset.v)));
   P.querySelectorAll('[data-site]').forEach(el => { const k = el.dataset.site; if(el.type === 'checkbox') el.checked = !!S[k]; else if(document.activeElement !== el) el.value = S[k] || ''; });
   fit();
@@ -589,7 +590,7 @@ function wirePanel(){
   }));
   P.querySelectorAll('[data-style]').forEach(el => el.addEventListener('input', () => {
     const k = el.dataset.style;
-    data.style[k] = el.type === 'checkbox' ? el.checked : el.type === 'range' ? +el.value : el.value;
+    data.style[k] = el.type === 'checkbox' ? el.checked : el.type === 'range' ? (k === 'fs' ? +el.value / .75 : +el.value) : el.value;
     save(); applyStyle(); fillPanel();
     if(['indent','dropcap','showTag'].includes(k)) render();
   }));
@@ -677,14 +678,14 @@ ${json}
 /* ------------------------------------------------------------------ 판에서 직접 편집 */
 let live = false, saved = null, typingT = null, lastHtml = null;
 const hist = [];
-const SIZE_OPTS = [[.6,'60%'],[.75,'75%'],[.85,'85%'],[1,'100%'],[1.15,'115%'],[1.3,'130%'],[1.5,'150%'],[1.8,'180%'],[2.2,'220%'],[2.8,'280%']];
 const ALIGN = d => `<svg width="14" height="12" viewBox="0 0 14 12" stroke="currentColor" stroke-width="1.4"><path d="${d}"/></svg>`;
 function fbarHTML(){
   const opt = list => list.map(f => `<option value="${f.n}">${f.n}</option>`).join('');
   const sw = (attr, v, title) => `<button class="sw" ${attr}="${v}" title="${title}" style="background:${v}"></button>`;
   return `<div class="fbar" id="fbar">
     <select id="fbFont" title="폰트"><option value="">폰트</option><optgroup label="한글">${opt(FONTS.ko)}</optgroup><optgroup label="영문">${opt(FONTS.en)}</optgroup></select>
-    <select id="fbSize" title="글자 크기"><option value="">크기</option>${SIZE_OPTS.map(o => `<option value="${o[0]}">${o[1]}</option>`).join('')}</select>
+    <span class="szbox" title="글자 크기 (pt)"><button data-sz="-1" title="작게">−</button><input type="number" id="fbSize" step="0.5" min="4" max="120" list="ptList"><span class="u">pt</span><button data-sz="1" title="크게">+</button></span>
+    <datalist id="ptList">${[8,9,10,10.5,11,12,14,16,18,20,22,24,28,32,36,40,48,60,72].map(v => `<option value="${v}">`).join('')}</datalist>
     <select id="fbWeight" title="굵기"><option value="">굵기</option>${[100,200,300,400,500,600,700,800,900].map(w => `<option>${w}</option>`).join('')}</select>
     <span class="fs"></span>
     <button data-cmd="bold" title="굵게"><b>B</b></button><button data-cmd="italic" title="기울임"><i style="font-family:serif">I</i></button><button data-cmd="underline" title="밑줄"><u>U</u></button><button data-cmd="strike" title="취소선"><s>S</s></button>
@@ -812,7 +813,24 @@ function placeBar(){
   let top = r.top - h - 12; if(top < 8) top = r.bottom + 12;
   let left = r.left + r.width/2 - w/2; left = Math.max(8, Math.min(left, window.innerWidth - w - 8));
   fb.style.top = top + 'px'; fb.style.left = left + 'px';
-  ['fbFont','fbSize','fbWeight'].forEach(id => $(id).value = '');
+  syncBar();
+}
+/* 선택한 글자의 현재 상태를 툴바에 표시 (눌린 버튼, 크기 pt, 굵기, 폰트, 정렬) */
+function syncBar(){
+  const el = firstEl(), fb = $('fbar'); if(!el) return;
+  const cs = getComputedStyle(el), c = $('content');
+  const deco = new Set(); let x = el;
+  while(x && x !== c){ const d = x.style && x.style.textDecorationLine; if(d) d.split(' ').forEach(v => deco.add(v)); if(x.tagName === 'U') deco.add('underline'); if(x.tagName === 'S') deco.add('line-through'); x = x.parentNode; }
+  const on = {bold: +cs.fontWeight >= 600, italic: cs.fontStyle === 'italic', underline: deco.has('underline'), strike: deco.has('line-through')};
+  fb.querySelectorAll('[data-cmd]').forEach(b => b.classList.toggle('on', !!on[b.dataset.cmd]));
+  const blk = el.closest(BLOCK); const al = blk ? getComputedStyle(blk).textAlign : 'left';
+  fb.querySelectorAll('[data-align]').forEach(b => b.classList.toggle('on', (al === 'start' ? 'left' : al === 'justify' ? 'left' : al) === b.dataset.align));
+  const scale = parseFloat($('content').style.fontSize || data.style.fs) / data.style.fs;
+  if(document.activeElement !== $('fbSize')) $('fbSize').value = pt(parseFloat(cs.fontSize) / scale);
+  const w = String(Math.round(+cs.fontWeight / 100) * 100); $('fbWeight').value = [...$('fbWeight').options].some(o => o.value === w) ? w : '';
+  const fam = cs.fontFamily, hit = FONTS.ko.concat(FONTS.en).find(f => fam.indexOf('"' + f.n) === 0 || fam.indexOf(f.n) === 0 || fam.indexOf('"' + f.n + ' Variable') === 0);
+  $('fbFont').value = hit ? hit.n : '';
+  const col = cs.color; fb.querySelectorAll('[data-color]').forEach(b => b.classList.toggle('on', getComputedStyle(b).backgroundColor === col));
 }
 function hideBar(){ const fb = $('fbar'); if(fb) fb.classList.remove('on'); }
 
@@ -847,7 +865,17 @@ function wireLive(){
   $('fbColor').addEventListener('change', e => styleSel({color: e.target.value}));
   $('fbHl').addEventListener('change', e => styleSel({'background-image': hlCss(e.target.value)}));
   $('fbFont').addEventListener('change', e => { const n = e.target.value; if(!n) return; const f = FONTS.ko.find(x => x.n === n) || FONTS.en.find(x => x.n === n); loadFont(f); styleSel({'font-family': FONTS.en.includes(f) ? f.s + ',var(--fb)' : f.s}); });
-  $('fbSize').addEventListener('change', e => { if(e.target.value) styleSel({'font-size': e.target.value + 'em'}); });
+  const setPt = v => {
+    v = Math.max(4, Math.min(120, +v)); if(!v) return;
+    /* 자동 맞춤 비율을 반영해 em으로 저장 → 판 글씨가 줄어들어도 비율 유지 */
+    const el = firstEl(); if(!el) return;
+    const scale = parseFloat($('content').style.fontSize || data.style.fs) / data.style.fs;
+    const parentPx = parseFloat(getComputedStyle(el.dataset && el.dataset.r ? el.parentNode : el).fontSize);
+    styleSel({'font-size': ((v / .75) * scale / parentPx).toFixed(4) + 'em'});
+  };
+  $('fbSize').addEventListener('change', e => setPt(e.target.value));
+  $('fbSize').addEventListener('keydown', e => { if(e.key === 'Enter'){ e.preventDefault(); setPt(e.target.value); } });
+  fb.querySelectorAll('[data-sz]').forEach(b => b.onclick = () => { const cur = +$('fbSize').value || 12; const steps = [6,7,8,9,10,10.5,11,12,13,14,16,18,20,22,24,26,28,32,36,40,48,54,60,72,96]; const d = +b.dataset.sz; const nx = d > 0 ? (steps.find(x => x > cur) || cur + 4) : ([...steps].reverse().find(x => x < cur) || Math.max(4, cur - 1)); setPt(nx); });
   $('fbWeight').addEventListener('change', e => { if(e.target.value) styleSel({'font-weight': e.target.value}); });
 
   /* 프레임 라벨 직접 수정 */

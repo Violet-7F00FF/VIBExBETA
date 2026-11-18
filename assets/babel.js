@@ -145,7 +145,7 @@ const STAR = SP('var(--mute)', 14);
 function buildPage(){
   const other = MODE === 'chat' ? ['novel.html','NOVEL'] : ['chat.html','CHAT'];
   const tools = MODE === 'home'
-    ? `<button class="tb" id="liveBtn">✎ 직접 편집</button><button class="tb" id="editBtn">EDIT</button><button class="tb dark" id="pngBtn">PNG 저장</button>`
+    ? `<button class="tb" id="liveBtn">✎ 직접 편집</button><button class="tb" id="editBtn">EDIT</button><button class="tb dark" id="pngBtn">PNG 저장</button><button class="tb dark" id="copyImgBtn">이미지 복사</button>`
     : `<button class="tb round" id="prev" aria-label="이전">${CHEV('M7.5 2L3.5 6L7.5 10')}</button>
        <span class="list"><button class="tb cnt" id="cnt"></button><div class="menu" id="menu"></div></span>
        <button class="tb round" id="next" aria-label="다음">${CHEV('M4.5 2L8.5 6L4.5 10')}</button>
@@ -153,6 +153,7 @@ function buildPage(){
        <button class="tb" id="liveBtn">✎ 직접 편집</button>
        <button class="tb" id="editBtn">EDIT</button>
        <button class="tb dark" id="pngBtn">PNG 저장</button>
+       <button class="tb dark" id="copyImgBtn">이미지 복사</button>
        <span class="sep"></span>
        <a class="tb" href="index.html">HOME</a>
        <a class="tb" href="${other[0]}">${other[1]} →</a>`;
@@ -168,7 +169,7 @@ function buildPage(){
 <div class="bar" id="bar">${tools}</div>
 <div class="scrim" id="scrim"></div>
 <aside class="panel" id="panel" aria-hidden="true"></aside>
-<div class="shot" id="shot"><img id="shotImg" alt=""><p>저장이 안 되면 이미지를 길게 누르거나 우클릭해서 저장하세요.</p><div class="btns"><a class="btn pri" id="shotDl" download>다운로드</a><button class="btn" id="shotClose">닫기</button></div></div>
+<div class="shot" id="shot"><img id="shotImg" alt=""><p>안 되면 이미지를 우클릭하거나 길게 눌러서 저장·복사할 수 있어요.</p><div class="btns"><a class="btn pri" id="shotDl" download style="display:inline-flex;align-items:center">다운로드</a><button class="btn pri" id="shotCopy">이미지 복사</button><button class="btn" id="shotClose">닫기</button></div></div>
 <div class="toast" id="toast"></div>
 <div class="livehint">직접 편집 중 — 글자를 클릭해서 쓰고, 드래그하면 서식 툴바가 떠요</div>
 ${fbarHTML()}`);
@@ -356,23 +357,50 @@ function render(){
 function loadScript(src){
   return new Promise((ok, no) => { if(window.htmlToImage) return ok(); const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = no; document.head.appendChild(s); });
 }
+/* 판을 이미지로 만들기: kind = 'png'(dataURL) | 'blob' */
+async function makeImage(kind){
+  const b = $('board'), [W,H] = SIZES[data.style.ratio];
+  await loadScript('https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.js');
+  if(document.fonts && document.fonts.ready) await document.fonts.ready;
+  b.classList.add('cap');
+  const opt = {width:W, height:H, pixelRatio:data.style.px2 ? 2 : 1, style:{transform:'none'}, cacheBust:true};
+  const fn = kind === 'blob' ? htmlToImage.toBlob : htmlToImage.toPng;
+  try{ try{ return await fn(b, opt); } catch(e){ return await fn(b, Object.assign({skipFonts:true}, opt)); } }
+  finally{ b.classList.remove('cap'); }
+}
+function fileName(){
+  const it = data.items[idx];
+  return `${data.site.homeTitle}_${MODE}${MODE==='home'?'':'_'+pad(idx+1)}${it && it.title ? '_' + it.title : ''}.png`.replace(/[\\/:*?"<>|]/g,'').replace(/\s+/g,'_');
+}
+function showShot(url){
+  $('shotImg').src = url; $('shotDl').href = url; $('shotDl').setAttribute('download', fileName());
+  $('shot').classList.add('on');
+}
 async function savePNG(){
   const btn = $('pngBtn'); btn.disabled = true; toast('이미지 만드는 중…');
-  const b = $('board'), [W,H] = SIZES[data.style.ratio];
+  try{ showShot(await makeImage('png')); }
+  catch(e){ toast('이미지를 만들지 못했어요. 잠시 후 다시 해주세요.'); }
+  finally{ btn.disabled = false; }
+}
+function dataURLtoBlob(url){
+  const bin = atob(url.split(',')[1]), arr = new Uint8Array(bin.length);
+  for(let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+  return new Blob([arr], {type:'image/png'});
+}
+/* 클립보드로 바로 복사 — 다운로드 없이 트위터·디스코드 등에 Ctrl+V */
+async function copyImage(fromShot){
+  const canCopy = navigator.clipboard && navigator.clipboard.write && window.ClipboardItem;
+  if(!canCopy){ toast('이 브라우저는 이미지 복사를 지원하지 않아요 — 이미지를 길게 눌러 복사해 주세요'); if(!fromShot) savePNG(); return; }
+  const btn = $('copyImgBtn'); btn.disabled = true;
+  if(!fromShot) toast('이미지 만드는 중…');
   try{
-    await loadScript('https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.js');
-    if(document.fonts && document.fonts.ready) await document.fonts.ready;
-    b.classList.add('cap');
-    const opt = {width:W, height:H, pixelRatio:data.style.px2 ? 2 : 1, style:{transform:'none'}, cacheBust:true};
-    let url;
-    try{ url = await htmlToImage.toPng(b, opt); }
-    catch(e){ url = await htmlToImage.toPng(b, Object.assign({skipFonts:true}, opt)); }
-    const it = data.items[idx];
-    const name = `${data.site.homeTitle}_${MODE}${MODE==='home'?'':'_'+pad(idx+1)}${it && it.title ? '_' + it.title : ''}.png`.replace(/[\\/:*?"<>|]/g,'').replace(/\s+/g,'_');
-    $('shotImg').src = url; $('shotDl').href = url; $('shotDl').setAttribute('download', name);
-    $('shot').classList.add('on');
-  }catch(e){ toast('이미지를 만들지 못했어요. 잠시 후 다시 해주세요.'); }
-  finally{ b.classList.remove('cap'); btn.disabled = false; }
+    const blob = fromShot ? Promise.resolve(dataURLtoBlob($('shotImg').src)) : makeImage('blob');
+    await navigator.clipboard.write([new ClipboardItem({'image/png': blob})]);
+    toast('이미지를 복사했어요 — 원하는 곳에 붙여넣기(Ctrl+V) 하세요');
+  }catch(e){
+    toast('복사가 막혔어요 — 뜨는 이미지를 우클릭하거나 길게 눌러 복사해 주세요');
+    if(!fromShot){ try{ showShot(await makeImage('png')); }catch(_){} }
+  }finally{ btn.disabled = false; }
 }
 
 /* ------------------------------------------------------------------ panel */
@@ -496,7 +524,7 @@ function buildPanel(){
       <div class="tab" data-tab="save">
         <div class="sec"><div class="sh">PNG</div>
           <label class="chk"><input type="checkbox" data-style="px2"> 2배 해상도로 저장 (더 선명, 파일 큼)</label>
-          <div class="btns"><button class="btn pri" id="pngBtn2">지금 판 PNG 저장</button></div>
+          <div class="btns"><button class="btn pri" id="pngBtn2">지금 판 PNG 저장</button><button class="btn" id="copyBtn2">지금 판 이미지 복사</button></div>
         </div>
         <div class="sec"><div class="sh">깃허브에 올리기</div>
           <div class="help">편집한 내용은 <b>지금 이 브라우저에만</b> 저장돼요. 방문자에게도 보이게 하려면:<br>
@@ -574,6 +602,7 @@ function wirePanel(){
   P.querySelectorAll('[data-pre]').forEach(b => b.onclick = () => { Object.assign(data.style, PRESETS[+b.dataset.pre].c); save(); applyStyle(); fillPanel(); });
   $('closeBtn').onclick = () => openPanel(false);
   $('pngBtn2').onclick = savePNG;
+  $('copyBtn2').onclick = () => copyImage(false);
   confirmBtn($('styleReset'), '한 번 더 누르면 되돌려요', () => { data.style = Object.assign({}, DEF_STYLE[MODE]); save(); applyStyle(); render(); fillPanel(); toast('스타일을 기본값으로 되돌렸어요'); });
 
   if(MODE !== 'home'){
@@ -865,6 +894,8 @@ $('editBtn').onclick = () => openPanel(!$('panel').classList.contains('on'));
 $('liveBtn').onclick = () => setLive(!live);
 wireLive();
 $('pngBtn').onclick = savePNG;
+$('copyImgBtn').onclick = () => copyImage(false);
+$('shotCopy').onclick = () => copyImage(true);
 $('scrim').onclick = () => openPanel(false);
 $('shotClose').onclick = () => $('shot').classList.remove('on');
 $('shot').onclick = e => { if(e.target === $('shot')) $('shot').classList.remove('on'); };
@@ -877,6 +908,7 @@ if(MODE !== 'home'){
 }
 document.addEventListener('keydown', e => {
   if(e.key === 'Escape'){ openPanel(false); $('shot').classList.remove('on'); }
+  if((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'c'){ e.preventDefault(); copyImage(false); return; }
   if(MODE === 'home' || /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName) || document.activeElement.isContentEditable) return;
   if(e.key === 'ArrowLeft') go(idx-1);
   if(e.key === 'ArrowRight') go(idx+1);

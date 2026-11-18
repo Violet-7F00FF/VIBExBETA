@@ -243,3 +243,4 @@ body.live .livehint{display:block;}
 .f>span[data-lock]:not([data-lock=""])::after{content:attr(data-lock);font-size:11px;color:#2EC4B6;}
 .f input:disabled{color:#8A909C;background:#F2F4F7;cursor:not-allowed;}
 .emb svg{display:block;}
+@media (max-width:760px){ .bar{justify-content:flex-start;overflow-x:auto;scrollbar-width:none;} .bar::-webkit-scrollbar{display:none;} .tb,.list{flex:none;} .menu{position:fixed;bottom:70px;left:50%;} }

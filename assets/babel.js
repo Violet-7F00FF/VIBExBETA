@@ -88,7 +88,24 @@ try { seed = JSON.parse($('seed').textContent); } catch(e){ seed = {}; }
 let local = null;
 try { local = JSON.parse(localStorage.getItem(KEY)); } catch(e){}
 let data = clone((local && (local.savedAt||0) >= (seed.savedAt||0)) ? local : seed);
+const LOCKABLE = ['genre','chara','maker','tag','hybris'];
+const DEF_TPL = {
+  home:  {},
+  chat:  {title:'제목', sub:'', genre:'장르', chara:'캐릭터', maker:'제작자', tag:'ETERNAL', hybris:'87.4%', log:'N: 나레이션\nVIBE: 대사\nBETA: 대사'},
+  novel: {title:'제목', sub:'부제', genre:'장르', chara:'캐릭터', maker:'제작자', tag:'ETERNAL', hybris:'87.4%', log:'본문'}
+};
 function normalize(){
+  data.tpl  = Object.assign({}, DEF_TPL[MODE], data.tpl || {});
+  data.lock = Object.assign({}, data.lock || {});
+  /* 다른 페이지(CHAT/NOVEL)에서 보내온 템플릿이 있으면 적용 */
+  try{ const pk = 'migdal-bavel-tplpush-' + MODE, push = JSON.parse(localStorage.getItem(pk));
+    if(push){ LOCKABLE.forEach(k => { if(k in push.tpl) data.tpl[k] = push.tpl[k]; data.lock[k] = !!push.lock[k]; }); localStorage.removeItem(pk); data._pushed = 1; } }catch(e){}
+  (data.items || []).forEach(it => {
+    if(it.genre == null && it.source != null){ it.genre = it.source; }
+    if(it.maker == null && it.author != null){ it.maker = it.author; }
+    delete it.source; delete it.author;
+    if(it.chara == null) it.chara = '';
+  });
   data.site  = Object.assign({}, DEF_SITE, data.site || {});
   data.style = Object.assign({}, DEF_STYLE[MODE], data.style || {});
   if(!SIZES[data.style.ratio]) data.style.ratio = '1:1';
@@ -96,11 +113,18 @@ function normalize(){
 }
 normalize();
 let idx = 0;
-function save(){ data.savedAt = Date.now(); try{ localStorage.setItem(KEY, JSON.stringify(data)); }catch(e){} }
+function save(){ delete data._pushed; data.savedAt = Date.now(); try{ localStorage.setItem(KEY, JSON.stringify(data)); }catch(e){} }
+if(data._pushed) save();
+/* 고정(잠금)된 항목은 템플릿 값을, 아니면 판의 값을 씀 */
+const val = (it, k) => String((LOCKABLE.includes(k) && data.lock[k]) ? (data.tpl[k] || '') : ((it && it[k]) || ''));
+const newItem = () => { const t = data.tpl; return {title:t.title||'', sub:t.sub||'', tag:t.tag||'', hybris:t.hybris||'', genre:t.genre||'', chara:t.chara||'', maker:t.maker||'', log:t.log||''}; };
 
 /* ------------------------------------------------------------------ svg bits */
 const SP = (c, s=20) => `<svg width="${s}" height="${s}" viewBox="-10 -10 20 20"><path d="M0-10Q0 0 10 0Q0 0 0 10Q0 0-10 0Q0 0 0-10Z" style="fill:${c}"/></svg>`;
-const TOWER = sz => `<svg width="${sz}" height="${sz}" viewBox="0 0 50 50" fill="none" style="stroke:var(--ink)" stroke-width="1.5" stroke-linejoin="round"><path d="M10 46H40M12 38.8L10 46M38 38.8L40 46"/><path d="M12 45L37 40.3" stroke-width=".9" opacity=".6"/><path d="M12 38.8H38M14 31.6L12 38.8M36 31.6L38 38.8"/><path d="M14 37.8L35 33.1" stroke-width=".9" opacity=".6"/><path d="M14 31.6H36M16 24.4L14 31.6M34 24.4L36 31.6"/><path d="M16 30.6L33 25.9" stroke-width=".9" opacity=".6"/><path d="M16 24.4H34M18 17.2L16 24.4M32 17.2L34 24.4"/><path d="M18 23.4L31 18.7" stroke-width=".9" opacity=".6"/><path d="M18 17.2H32M20 10L18 17.2M30 10L32 17.2"/><path d="M20 16.2L29 11.5" stroke-width=".9" opacity=".6"/><path d="M20 10L24 5L26 8L30 10"/></svg>`;
+const TOWER_P = `<path d="M10 46H40M12 38.8L10 46M38 38.8L40 46"/><path d="M12 45L37 40.3" stroke-width=".9" opacity=".6"/><path d="M12 38.8H38M14 31.6L12 38.8M36 31.6L38 38.8"/><path d="M14 37.8L35 33.1" stroke-width=".9" opacity=".6"/><path d="M14 31.6H36M16 24.4L14 31.6M34 24.4L36 31.6"/><path d="M16 30.6L33 25.9" stroke-width=".9" opacity=".6"/><path d="M16 24.4H34M18 17.2L16 24.4M32 17.2L34 24.4"/><path d="M18 23.4L31 18.7" stroke-width=".9" opacity=".6"/><path d="M18 17.2H32M20 10L18 17.2M30 10L32 17.2"/><path d="M20 16.2L29 11.5" stroke-width=".9" opacity=".6"/><path d="M20 10L25 4.5L30 10"/>`;
+const TOWER = sz => `<svg width="${sz}" height="${sz}" viewBox="0 0 50 50" fill="none" style="stroke:var(--ink)" stroke-width="1.5" stroke-linejoin="round">${TOWER_P}</svg>`;
+/* 육각형 + 탑을 한 장의 SVG로: 탑 외곽(10~40, 4.5~46)의 중심을 육각형 중심(30,30)에 정확히 맞춤 */
+const EMBLEM = `<svg width="72" height="72" viewBox="0 0 60 60" fill="none"><path d="M30 3L53.4 16.5V43.5L30 57L6.6 43.5V16.5Z" style="stroke:var(--mute);fill:var(--card)" stroke-width="1.6"/><path d="M30 8L49 19V41L30 52L11 41V19Z" style="stroke:var(--line)" stroke-width="1" opacity=".7"/><g transform="translate(13.333 13.167) scale(.6667)" style="stroke:var(--ink)" stroke-width="1.5" stroke-linejoin="round">${TOWER_P}</g></svg>`;
 const PLUS = `<svg width="16" height="16" viewBox="0 0 14 14"><path d="M7 1V13M1 7H13" style="stroke:var(--mute)" stroke-width="1.3"/></svg>`;
 const BAR = (() => { const r=[[0,1],[3,2],[6,1],[10,3],[15,1],[17,1],[20,2],[23,1],[26,2],[29,1],[33,3],[38,1],[40,1],[43,2],[46,1],[49,2],[52,1],[56,3],[61,1],[63,1]];
   return `<svg width="64" height="14" viewBox="0 0 64 14" style="fill:var(--mute)">${r.map(x=>`<rect x="${x[0]}" width="${x[1]}" height="14"/>`).join('')}</svg>`; })();
@@ -135,7 +159,7 @@ function buildPage(){
   document.body.insertAdjacentHTML('afterbegin', `
 <div class="view" id="view"><div class="holder" id="holder"><div class="board" id="board">
   <div class="row tp"><span class="dot" style="background:var(--L)"></span><span class="b" id="hL" data-lbl style="font-size:28px;color:var(--L)"></span><span class="m lbl" id="hLs" data-lbl></span><span class="ln"></span><span style="width:76px;flex:none"></span><span class="ln"></span><span class="m lbl" id="hRs" data-lbl></span><span class="b" id="hR" data-lbl style="font-size:28px;color:var(--R)"></span><span class="dot" style="background:var(--R)"></span></div>
-  <a class="ab emb" href="index.html" title="HOME"><div style="position:relative;width:72px;height:72px"><div class="ab" style="left:0;top:0"><svg width="72" height="72" viewBox="0 0 60 60" fill="none"><path d="M30 3L53.4 16.5V43.5L30 57L6.6 43.5V16.5Z" style="stroke:var(--mute);fill:var(--card)" stroke-width="1.6"/><path d="M30 8L49 19V41L30 52L11 41V19Z" style="stroke:var(--line)" stroke-width="1" opacity=".7"/></svg></div><div class="ab" style="left:0;top:0;width:72px;height:72px;display:flex;align-items:center;justify-content:center">${TOWER(40)}</div></div></a>
+  <a class="ab emb" href="index.html" title="HOME">${EMBLEM}</a>
   <div class="row tp2">${PLUS}<span class="m lbl" id="topLabel" data-lbl></span>${BAR}<span class="mid"></span>${BAR}<span class="m lbl" id="noLabel"></span>${PLUS}</div>
   <div class="stage" id="stage"><div class="content" id="content"></div></div>
   <div class="g3 bt2"><div class="cl"><span class="ic">${SP('var(--L)')}</span><span class="m lbl" id="ruin" data-lbl></span></div><div class="cc"><span style="display:inline-block;transform:scale(1.35)"><span style="display:inline-flex;gap:8px">${MOONS}</span></span></div><div class="cr"><span class="m lbl">HYBRIS <b id="hyb" data-lbl style="color:var(--R);font-weight:600;font-size:20px"></b></span><span class="ic">${SP('var(--R)')}</span></div></div>
@@ -232,10 +256,18 @@ function parseNovel(text){
   return out;
 }
 function srcLine(it){
-  if(!it.source && !it.author) return '';
-  return `<div class="src fade"><span class="dash"></span>${it.source?`<span class="a">${esc(it.source)}</span>`:''}${it.source&&it.author?'<span class="vb"></span>':''}${it.author?`<span>${esc(it.author)}</span>`:''}</div>`;
+  const g = val(it,'genre'), c = val(it,'chara'), m = val(it,'maker');
+  if(!g && !c && !m) return '';
+  const ce = k => data.lock[k] ? ' contenteditable="false"' : '';
+  return `<div class="src fade"><span class="dash"></span>${g?`<span class="a g"${ce('genre')}>${esc(g)}</span>`:''}${g&&c?'<span class="sl">/</span>':''}${c?`<span class="c"${ce('chara')}>${esc(c)}</span>`:''}${(g||c)&&m?'<span class="vb"></span>':''}${m?`<span class="mk"${ce('maker')}>${esc(m)}</span>`:''}</div>`;
 }
 
+function refreshSrc(it){
+  const c = $('content'), old = c.querySelector('.src'), fresh = srcLine(it).replace('src fade', 'src');
+  if(old){ if(fresh) old.outerHTML = fresh; else old.remove(); }
+  else if(fresh){ (c.querySelector('.body') ? c : c).insertAdjacentHTML('beforeend', fresh); }
+  it.html = c.innerHTML;
+}
 /* ------------------------------------------------------------------ render */
 function updateFrame(){
   const S = data.site, it = data.items[idx];
@@ -247,8 +279,8 @@ function updateFrame(){
     T('hyb', S.hybris);
     document.querySelectorAll('.mp').forEach((el,i) => el.classList.toggle('on', i===2));
   } else {
-    $('noLabel').textContent = `NO. ${pad(idx+1)}` + (it && it.tag ? ' · ' + it.tag : '');
-    T('hyb', it && it.hybris ? it.hybris : S.hybris);
+    $('noLabel').textContent = `NO. ${pad(idx+1)}` + (val(it,'tag') ? ' · ' + val(it,'tag') : '');
+    T('hyb', val(it,'hybris') || S.hybris);
     document.querySelectorAll('.mp').forEach((el,i) => el.classList.toggle('on', i === idx % 5));
     $('prev').disabled = idx <= 0; $('next').disabled = idx >= data.items.length - 1;
     $('cnt').innerHTML = `<b>${pad(Math.min(idx+1, data.items.length))}</b>&nbsp;/&nbsp;${pad(data.items.length)}`;
@@ -285,7 +317,7 @@ function render(){
   } else if(MODE === 'chat'){
     cls += ' ch';
     const blocks = parseChat(it.log), Ln = first(S.left), Rn = first(S.right);
-    html = `<div class="exh fade"><div class="k">EXCERPT · NO. ${pad(idx+1)}${it.tag ? ' · ' + esc(it.tag) : ''}</div>${it.title?`<div class="tt">${esc(it.title)}</div>`:''}${it.sub?`<div class="st">${esc(it.sub)}</div>`:''}</div>` +
+    html = `<div class="exh fade"><div class="k">EXCERPT · NO. ${pad(idx+1)}${val(it,'tag') ? ' · ' + esc(val(it,'tag')) : ''}</div>${it.title?`<div class="tt">${esc(it.title)}</div>`:''}${it.sub?`<div class="st">${esc(it.sub)}</div>`:''}</div>` +
       blocks.map(b => {
         if(b.t === 'hr') return `<div class="hr fade" ${del()}><span class="ln"></span>${STAR}<span class="ln"></span></div>`;
         const ps = b.p.map(p => `<p>${fmt(p)}</p>`).join('');
@@ -312,6 +344,7 @@ function render(){
     html = `${it.title?`<div class="tt fade">${esc(it.title)}</div>`:''}${it.sub?`<div class="st fade">${esc(it.sub)}</div>`:''}<div class="body">${body}</div>${srcLine(it)}`;
   }
   c.className = cls; c.innerHTML = html;
+  if(it && typeof it.html === 'string' && MODE !== 'home') refreshSrc(it);
   FONTS.ko.concat(FONTS.en).forEach(f => { if(html.indexOf(f.n) > -1) loadFont(f); });
   hist.length = 0; lastHtml = c.innerHTML;
   c.contentEditable = (live && MODE !== 'home' && it) ? 'true' : 'false';
@@ -382,7 +415,25 @@ const HELP = {
 
 function buildPanel(){
   const st = data.style;
-  const tabs = (MODE === 'home' ? [] : [['content','내용']]).concat([['style','스타일'],['site','사이트'],['save','저장·백업']]);
+  const tabs = (MODE === 'home' ? [] : [['content','내용'],['tpl','템플릿']]).concat([['style','스타일'],['site','사이트'],['save','저장·백업']]);
+  const TPL_ROWS = [['genre','장르'],['chara','캐릭터'],['maker','제작자'],['tag','태그 (상단 NO. 옆)'],['hybris','HYBRIS 수치']];
+  const other = MODE === 'chat' ? 'NOVEL' : 'CHAT';
+  const tplTab = MODE === 'home' ? '' : `
+    <div class="tab" data-tab="tpl">
+      <div class="sec"><div class="sh">고정 문구</div>
+        <div class="help">여기 적은 값은 <b>새 판</b>을 만들 때 자동으로 들어가요.<br><b>고정</b>을 켜면 <b>모든 판</b>이 이 값을 쓰고, 판마다 따로 못 바꿔요. (제작자처럼 늘 같은 건 고정 추천)</div>
+        ${TPL_ROWS.map(r => `<div class="tplrow"><label class="f"><span>${r[1]}</span><input type="text" data-tpl="${r[0]}"></label><label class="chk lockchk"><input type="checkbox" data-lock="${r[0]}"> 고정</label></div>`).join('')}
+      </div>
+      <div class="sec"><div class="sh">새 판 기본 내용</div>
+        <div class="two"><label class="f"><span>기본 제목</span><input type="text" data-tpl="title"></label><label class="f"><span>기본 부제</span><input type="text" data-tpl="sub"></label></div>
+        <label class="f"><span>기본 본문</span><textarea data-tpl="log" style="min-height:140px" spellcheck="false"></textarea></label>
+        <div class="btns"><button class="btn" id="tplFromBtn">지금 판을 템플릿으로 저장</button><button class="btn" id="tplToBtn">템플릿을 지금 판에 적용</button></div>
+      </div>
+      <div class="sec"><div class="sh">다른 페이지</div>
+        <div class="help">장르·캐릭터·제작자·태그·HYBRIS 값과 고정 여부를 ${other} 페이지에도 똑같이 보내요. ${other} 페이지를 열면 적용돼요.</div>
+        <div class="btns"><button class="btn" id="tplPushBtn">${other}에도 적용</button></div>
+      </div>
+    </div>`;
   const fontOpts = (kind, cur) => FONTS[kind].map(f => `<option ${f.n===cur?'selected':''}>${f.n}</option>`).join('');
   const content = MODE === 'home' ? '' : `
     <div class="tab" data-tab="content">
@@ -391,8 +442,10 @@ function buildPanel(){
         <label class="f"><span>부제</span><input type="text" data-item="sub"></label>
         <label class="f"><span>태그 (상단 NO. 옆)</span><input type="text" data-item="tag"></label>
         <label class="f"><span>HYBRIS 수치</span><input type="text" data-item="hybris"></label>
-        <label class="f"><span>출처 (— ARCH 자리)</span><input type="text" data-item="source"></label>
-        <label class="f"><span>작가·메모 ( | 뒤)</span><input type="text" data-item="author"></label></div>
+        <label class="f"><span>장르</span><input type="text" data-item="genre"></label>
+        <label class="f"><span>캐릭터</span><input type="text" data-item="chara"></label>
+        <label class="f"><span>제작자</span><input type="text" data-item="maker"></label></div>
+        <div class="help" style="margin-top:-2px">판 아래에 <code>— 장르 / 캐릭터 | 제작자</code> 로 들어가요. 매번 같은 값이면 <b>템플릿</b> 탭에서 고정하세요.</div>
         <div class="help">${HELP[MODE]}</div>
         <div class="warn" id="warn"></div>
         <div class="help rich" id="richNote">이 판은 <b>판에서 직접 꾸민 서식</b>이 있어서 본문 칸이 잠겨 있어요.<br>본문 칸으로 다시 쓰고 싶으면 아래 버튼을 눌러주세요. 직접 꾸민 서식과 판에서 고친 글은 사라지고, 본문 칸 내용으로 다시 그려져요.<div class="btns" style="margin-top:8px"><button class="btn del" id="unrichBtn">직접 편집 서식 지우기</button></div></div>
@@ -405,6 +458,7 @@ function buildPanel(){
     <div class="tabs">${tabs.map((t,i) => `<button data-go="${t[0]}" class="${i===0?'on':''}">${t[1]}</button>`).join('')}</div>
     <div class="pb">
       ${content}
+      ${tplTab}
       <div class="tab" data-tab="style">
         <div class="sec"><div class="sh">판</div>
           ${SEGS.map(s => `<div class="f"><span>${s[1]}</span><div class="seg" data-seg="${s[0]}">${s[2].map(o => `<button data-v="${o[0]}">${o[1]}</button>`).join('')}</div></div>`).join('')}
@@ -462,7 +516,14 @@ function buildPanel(){
 
 function fillPanel(){
   const P = $('panel'), it = data.items[idx] || {}, st = data.style, S = data.site;
-  P.querySelectorAll('[data-item]').forEach(el => { if(document.activeElement !== el) el.value = it[el.dataset.item] || ''; });
+  P.querySelectorAll('[data-item]').forEach(el => {
+    const k = el.dataset.item, locked = LOCKABLE.includes(k) && data.lock[k];
+    if(document.activeElement !== el) el.value = locked ? (data.tpl[k] || '') : (it[k] || '');
+    el.disabled = locked; el.title = locked ? '템플릿에 고정됨 — 템플릿 탭에서 바꿀 수 있어요' : '';
+    const lab = el.previousElementSibling; if(lab) lab.dataset.lock = locked ? '🔒 고정' : '';
+  });
+  P.querySelectorAll('[data-tpl]').forEach(el => { if(document.activeElement !== el) el.value = data.tpl[el.dataset.tpl] || ''; });
+  P.querySelectorAll('[data-lock]').forEach(el => el.checked = !!data.lock[el.dataset.lock]);
   const rich = typeof it.html === 'string';
   if($('richNote')){ $('richNote').classList.toggle('on', rich); P.querySelector('[data-item=log]').disabled = rich; P.querySelector('[data-item=log]').style.opacity = rich ? .45 : 1; }
   P.querySelectorAll('[data-style]').forEach(el => { const k = el.dataset.style; if(el.type === 'checkbox') el.checked = !!st[k]; else if(document.activeElement !== el) el.value = st[k]; });
@@ -482,11 +543,21 @@ function wirePanel(){
   P.querySelectorAll('[data-item]').forEach(el => el.addEventListener('input', () => {
     const it = data.items[idx]; if(!it) return; const k = el.dataset.item; it[k] = el.value;
     if(typeof it.html === 'string'){
-      const sel = {title:'.tt', sub:'.st', source:'.src .a'}[k], node = sel && $('content').querySelector(sel);
-      if(node){ node.textContent = el.value; it.html = $('content').innerHTML; lastHtml = it.html; }
+      const sel = {title:'.tt', sub:'.st'}[k], node = sel && $('content').querySelector(sel);
+      if(node){ node.textContent = el.value; it.html = $('content').innerHTML; }
+      if(['genre','chara','maker'].includes(k)) refreshSrc(it);
+      lastHtml = it.html;
       save(); updateFrame(); fit(); return;
     }
     save(); render();
+  }));
+  P.querySelectorAll('[data-tpl]').forEach(el => el.addEventListener('input', () => {
+    data.tpl[el.dataset.tpl] = el.value; save();
+    if(data.lock[el.dataset.tpl]) rerenderKeep();
+  }));
+  P.querySelectorAll('[data-lock]').forEach(el => el.addEventListener('change', () => {
+    data.lock[el.dataset.lock] = el.checked; save(); rerenderKeep(); fillPanel();
+    toast(el.checked ? '모든 판에 고정했어요' : '고정을 풀었어요 — 판마다 따로 쓸 수 있어요');
   }));
   P.querySelectorAll('[data-style]').forEach(el => el.addEventListener('input', () => {
     const k = el.dataset.style;
@@ -506,7 +577,14 @@ function wirePanel(){
   confirmBtn($('styleReset'), '한 번 더 누르면 되돌려요', () => { data.style = Object.assign({}, DEF_STYLE[MODE]); save(); applyStyle(); render(); fillPanel(); toast('스타일을 기본값으로 되돌렸어요'); });
 
   if(MODE !== 'home'){
-    $('addBtn').onclick = () => { data.items.push(MODE === 'chat' ? {title:'제목', sub:'', tag:'ETERNAL', hybris:data.site.hybris, source:'출처', author:'작가', log:'N: 나레이션\nVIBE: 대사\nBETA: 대사'} : {title:'제목', sub:'부제', tag:'ETERNAL', hybris:data.site.hybris, source:'출처', author:'작가', log:'본문'}); save(); go(data.items.length-1); P.querySelector('[data-item=log]').focus(); };
+    $('addBtn').onclick = () => { data.items.push(newItem()); save(); go(data.items.length-1); P.querySelector('[data-item=log]').focus(); };
+    $('tplFromBtn').onclick = () => { const it = data.items[idx]; if(!it) return; ['title','sub','genre','chara','maker','tag','hybris','log'].forEach(k => { if(!(LOCKABLE.includes(k) && data.lock[k])) data.tpl[k] = it[k] || ''; }); save(); fillPanel(); toast('지금 판을 템플릿으로 저장했어요'); };
+    confirmBtn($('tplToBtn'), '한 번 더 누르면 덮어써요', () => { const it = data.items[idx]; if(!it) return; Object.assign(it, newItem()); delete it.html; save(); render(); fillPanel(); toast('템플릿을 지금 판에 적용했어요'); });
+    $('tplPushBtn').onclick = () => {
+      const t = {}, l = {}; LOCKABLE.forEach(k => { t[k] = data.tpl[k]; l[k] = !!data.lock[k]; });
+      try{ localStorage.setItem('migdal-bavel-tplpush-' + (MODE === 'chat' ? 'novel' : 'chat'), JSON.stringify({tpl:t, lock:l})); toast((MODE === 'chat' ? 'NOVEL' : 'CHAT') + ' 페이지를 열면 적용돼요'); }
+      catch(e){ toast('이 브라우저에서는 보낼 수 없어요'); }
+    };
     $('dupBtn').onclick = () => { if(!data.items[idx]) return; data.items.splice(idx+1, 0, clone(data.items[idx])); save(); go(idx+1); toast('복제했어요'); };
     $('upBtn').onclick = () => move(-1); $('downBtn').onclick = () => move(1);
     confirmBtn($('unrichBtn'), '한 번 더 누르면 지워요', () => { const it = data.items[idx]; if(!it) return; delete it.html; save(); render(); fillPanel(); toast('본문 칸 내용으로 다시 그렸어요'); });
@@ -618,9 +696,9 @@ function commit(){
   if(lastHtml !== null){ hist.push(lastHtml); if(hist.length > 80) hist.shift(); }
   lastHtml = cur; it.html = cur;
   const tx = sel => { const n = c.querySelector(sel); return n ? n.innerText.trim() : null; };
-  const tt = tx('.tt'), st = tx('.st'), sa = tx('.src .a');
-  if(tt !== null) it.title = tt; if(st !== null) it.sub = st; if(sa !== null) it.source = sa;
-  const au = c.querySelector('.src > span:last-child:not(.a):not(.vb):not(.dash)'); if(au) it.author = au.innerText.trim();
+  const tt = tx('.tt'), st = tx('.st');
+  if(tt !== null) it.title = tt; if(st !== null) it.sub = st;
+  [['genre','.src .g'],['chara','.src .c'],['maker','.src .mk']].forEach(([k, q]) => { const v = tx(q); if(v !== null && !data.lock[k]) it[k] = v; });
   save(); updateFrame(); fit();
   if($('panel').classList.contains('on')) fillPanel();
 }
@@ -750,7 +828,7 @@ function wireLive(){
     el.addEventListener('paste', e => { e.preventDefault(); document.execCommand('insertText', false, (e.clipboardData.getData('text/plain') || '').replace(/\n/g,' ')); });
     el.addEventListener('input', () => {
       const v = el.textContent, k = LBL[el.id];
-      if(el.id === 'hyb'){ const it = data.items[idx]; if(MODE === 'home' || !it) data.site.hybris = v; else it.hybris = v; }
+      if(el.id === 'hyb'){ const it = data.items[idx]; if(MODE === 'home' || !it) data.site.hybris = v; else if(data.lock.hybris) data.tpl.hybris = v; else it.hybris = v; }
       else if(k === 'left' || k === 'right'){ const arr = names(data.site[k]); arr[0] = v.trim(); data.site[k] = arr.join(', '); }
       else data.site[k] = v;
       save();
@@ -762,6 +840,7 @@ function wireLive(){
 function hlCss(c){ return c ? `linear-gradient(transparent 56%, color-mix(in srgb, ${c} 45%, transparent) 56%)` : 'none'; }
 
 /* ------------------------------------------------------------------ nav */
+function rerenderKeep(){ const y = idx; render(); idx = y; }
 function go(i){ if(i < 0 || i >= data.items.length) return; idx = i; render(); if($('panel').classList.contains('on')) fillPanel(); }
 function move(dir){
   const j = idx + dir; if(j < 0 || j >= data.items.length) return;

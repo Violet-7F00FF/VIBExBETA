@@ -80,6 +80,7 @@ mark{background:linear-gradient(transparent 58%,color-mix(in srgb,var(--mute) ca
 .src .dash{display:inline-block;width:1.4em;height:1px;background:var(--sub);}
 .src .vb{display:inline-block;width:1px;height:1em;background:var(--line);}
 .src .a{font-family:var(--ff);letter-spacing:.06em;text-transform:uppercase;}
+.src .sl{color:var(--line);margin:0 -.2em;}
 
 /* ---- CHAT (판 채팅) ---- */
 .exh{text-align:center;margin-bottom:1.3em;}
@@ -236,3 +237,9 @@ body.live [data-lbl]:focus{outline:1.5px solid var(--L);outline-offset:3px;}
 body.live .livehint{display:block;}
 .rich{display:none;}
 .rich.on{display:block;}
+
+.tplrow{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:end;}
+.tplrow .lockchk{margin:0 0 20px;white-space:nowrap;}
+.f>span[data-lock]:not([data-lock=""])::after{content:attr(data-lock);font-size:11px;color:#2EC4B6;}
+.f input:disabled{color:#8A909C;background:#F2F4F7;cursor:not-allowed;}
+.emb svg{display:block;}

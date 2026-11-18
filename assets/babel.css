@@ -279,3 +279,25 @@ body.live .livehint{display:block;}
 .tbtns{grid-column:1 / -1;display:flex;flex-wrap:wrap;gap:6px;}
 .tbtns .btn{height:30px;padding:0 11px;font-size:12.5px;}
 .tempty{font-size:12.5px;color:#8A909C;padding:14px;border:1px dashed #DDE1E8;text-align:center;line-height:1.7;}
+
+/* 모아보기 */
+.gridv{position:fixed;inset:0;z-index:48;background:var(--page);display:none;flex-direction:column;}
+.gridv.on{display:flex;}
+.gh{display:flex;align-items:center;gap:12px;padding:18px 26px;border-bottom:1px solid rgba(0,0,0,.06);background:rgba(255,255,255,.6);backdrop-filter:blur(8px);font-family:"Outfit","Noto Sans KR",sans-serif;}
+.gh .t{font-weight:600;letter-spacing:.2em;font-size:14px;color:#3A3F4B;}
+.gc-n{font-size:12px;color:#8A909C;letter-spacing:.1em;}
+.gtip{font-size:12px;color:#8A909C;font-family:"Noto Sans KR",sans-serif;}
+.gg{flex:1;overflow:auto;padding:24px 26px 40px;display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:22px;align-content:start;}
+.gcell{cursor:pointer;}
+.gthumb{position:relative;aspect-ratio:var(--ar);overflow:hidden;background:#fff;box-shadow:0 6px 20px rgba(20,24,32,.12);transition:transform .2s,box-shadow .2s;}
+.gthumb .board{transform-origin:0 0;pointer-events:none;}
+.gcell:hover .gthumb{transform:translateY(-3px);box-shadow:0 12px 28px rgba(20,24,32,.18);}
+.gcell.cur .gthumb{outline:2.5px solid #3A3F4B;outline-offset:3px;}
+.gcell.drag{opacity:.4;}
+.gcell.over .gthumb{outline:2.5px dashed #2EC4B6;outline-offset:3px;}
+.glab{display:flex;gap:8px;align-items:baseline;margin-top:9px;font-size:12.5px;color:#3A3F4B;font-family:"Noto Sans KR",sans-serif;min-width:0;}
+.glab b{font-family:"Outfit",sans-serif;font-weight:600;font-size:11px;letter-spacing:.14em;color:#8A909C;flex:none;}
+.glab span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.gadd .gthumb{background:transparent;box-shadow:none;border:1.5px dashed rgba(0,0,0,.2);display:flex;align-items:center;justify-content:center;}
+.gadd .gthumb span{font-size:14px;color:#8A909C;}
+.gadd:hover .gthumb{border-color:#3A3F4B;box-shadow:none;}

@@ -154,6 +154,7 @@ function buildPage(){
     : `<button class="tb round" id="prev" aria-label="이전">${CHEV('M7.5 2L3.5 6L7.5 10')}</button>
        <span class="list"><button class="tb cnt" id="cnt"></button><div class="menu" id="menu"></div></span>
        <button class="tb round" id="next" aria-label="다음">${CHEV('M4.5 2L8.5 6L4.5 10')}</button>
+       <button class="tb" id="gridBtn" title="판 모아보기"><svg width="13" height="13" viewBox="0 0 13 13" fill="currentColor"><rect width="5.5" height="5.5"/><rect x="7.5" width="5.5" height="5.5"/><rect y="7.5" width="5.5" height="5.5"/><rect x="7.5" y="7.5" width="5.5" height="5.5"/></svg>모아보기</button>
        <span class="sep"></span>
        <button class="tb" id="liveBtn">✎ 직접 편집</button>
        <button class="tb" id="editBtn">EDIT</button>
@@ -176,6 +177,7 @@ function buildPage(){
 <aside class="panel" id="panel" aria-hidden="true"></aside>
 <div class="shot" id="shot"><img id="shotImg" alt=""><p>안 되면 이미지를 우클릭하거나 길게 눌러서 저장·복사할 수 있어요.</p><div class="btns"><a class="btn pri" id="shotDl" download style="display:inline-flex;align-items:center">다운로드</a><button class="btn pri" id="shotCopy">이미지 복사</button><button class="btn" id="shotClose">닫기</button></div></div>
 <div class="toast" id="toast"></div>
+<div class="gridv" id="gridv"><div class="gh"><span class="t">ALL BOARDS</span><span class="gc-n" id="gridN"></span><span style="flex:1"></span><span class="gtip">클릭하면 그 판으로 · 끌어서 순서 바꾸기</span><button class="x" id="gridClose" aria-label="닫기">${CHEV('M2 2L10 10M10 2L2 10')}</button></div><div class="gg" id="gridG"></div></div>
 <div class="livehint">직접 편집 중 — 글자를 클릭해서 쓰고, 드래그하면 서식 툴바가 떠요</div>
 ${fbarHTML()}`);
 }
@@ -715,7 +717,7 @@ function fbarHTML(){
     <label class="cp" title="직접 고르기"><input type="color" id="fbHl" value="#FFD84D"></label>
     <button class="sw none" data-hl="" title="형광펜 지우기"></button>
     <span class="fs"></span>
-    <button data-align="left" title="왼쪽 정렬">${ALIGN('M1 2H13M1 6H9M1 10H11')}</button><button data-align="center" title="가운데 정렬">${ALIGN('M1 2H13M3 6H11M2 10H12')}</button><button data-align="right" title="오른쪽 정렬">${ALIGN('M1 2H13M5 6H13M3 10H13')}</button>
+    <button data-align="left" title="왼쪽 정렬">${ALIGN('M1 2H13M1 6H9M1 10H11')}</button><button data-align="center" title="가운데 정렬">${ALIGN('M1 2H13M3 6H11M2 10H12')}</button><button data-align="right" title="오른쪽 정렬">${ALIGN('M1 2H13M5 6H13M3 10H13')}</button><button data-align="justify" title="양쪽 정렬 (네모 반듯하게)">${ALIGN('M1 2H13M1 6H13M1 10H13')}</button>
     <span class="fs"></span>
     <button data-cmd="clear" title="서식 지우기" style="font-size:12px">지우기</button><button data-cmd="undo" title="되돌리기 (Ctrl+Z)">↶</button>
   </div>`;
@@ -840,7 +842,7 @@ function syncBar(){
   const on = {bold: +cs.fontWeight >= 600, italic: cs.fontStyle === 'italic', underline: deco.has('underline'), strike: deco.has('line-through')};
   fb.querySelectorAll('[data-cmd]').forEach(b => b.classList.toggle('on', !!on[b.dataset.cmd]));
   const blk = el.closest(BLOCK); const al = blk ? getComputedStyle(blk).textAlign : 'left';
-  fb.querySelectorAll('[data-align]').forEach(b => b.classList.toggle('on', (al === 'start' ? 'left' : al === 'justify' ? 'left' : al) === b.dataset.align));
+  fb.querySelectorAll('[data-align]').forEach(b => b.classList.toggle('on', (al === 'start' ? 'left' : al) === b.dataset.align));
   const scale = parseFloat($('content').style.fontSize || data.style.fs) / data.style.fs;
   if(document.activeElement !== $('fbSize')) $('fbSize').value = pt(parseFloat(cs.fontSize) / scale);
   const w = String(Math.round(+cs.fontWeight / 100) * 100); $('fbWeight').value = [...$('fbWeight').options].some(o => o.value === w) ? w : '';
@@ -985,6 +987,50 @@ function armed(btn, armText, fn){
     btn.dataset.arm = ''; btn.textContent = orig; fn();
   };
 }
+/* ------------------------------------------------------------------ 모아보기 (네모 칸 정렬) */
+function openGrid(){
+  if(MODE === 'home') return;
+  const keep = idx, [W,H] = SIZES[data.style.ratio], g = $('gridG');
+  g.innerHTML = ''; g.style.setProperty('--ar', W + '/' + H);
+  data.items.forEach((it, i) => {
+    idx = i; render();
+    const cl = $('board').cloneNode(true);
+    cl.removeAttribute('id'); cl.querySelectorAll('[id]').forEach(e => e.removeAttribute('id'));
+    cl.querySelectorAll('[contenteditable]').forEach(e => e.removeAttribute('contenteditable'));
+    cl.classList.add('cap'); cl.style.transform = '';
+    const cell = document.createElement('div'); cell.className = 'gcell' + (i === keep ? ' cur' : ''); cell.dataset.i = i; cell.draggable = true;
+    cell.innerHTML = `<div class="gthumb"></div><div class="glab"><b>NO. ${pad(i+1)}</b><span>${esc(it.title || '(제목 없음)')}</span></div>`;
+    cell.firstChild.appendChild(cl); g.appendChild(cell);
+  });
+  const add = document.createElement('div'); add.className = 'gcell gadd'; add.innerHTML = `<div class="gthumb"><span>+ 새 판</span></div><div class="glab"><b>&nbsp;</b></div>`; g.appendChild(add);
+  idx = keep; render();
+  $('gridN').textContent = `${data.items.length}장`;
+  $('gridv').classList.add('on'); scaleGrid();
+}
+function scaleGrid(){
+  const [W] = SIZES[data.style.ratio];
+  document.querySelectorAll('#gridG .gthumb').forEach(t => { const b = t.querySelector('.board'); if(b) b.style.transform = `scale(${t.clientWidth / W})`; });
+}
+function closeGrid(){ const v = $('gridv'); if(v && v.classList.contains('on')){ v.classList.remove('on'); $('gridG').innerHTML = ''; } }
+function wireGrid(){
+  const g = $('gridG'); let from = null;
+  $('gridBtn').onclick = openGrid; $('gridClose').onclick = closeGrid;
+  g.addEventListener('click', e => {
+    const c = e.target.closest('.gcell'); if(!c) return;
+    if(c.classList.contains('gadd')){ data.items.push(newItem()); save(); closeGrid(); go(data.items.length - 1); return; }
+    closeGrid(); go(+c.dataset.i);
+  });
+  g.addEventListener('dragstart', e => { const c = e.target.closest('.gcell'); if(!c || c.classList.contains('gadd')) return; from = +c.dataset.i; c.classList.add('drag'); e.dataTransfer.effectAllowed = 'move'; });
+  g.addEventListener('dragover', e => { const c = e.target.closest('.gcell'); if(from === null || !c || c.classList.contains('gadd')) return; e.preventDefault(); g.querySelectorAll('.over').forEach(x => x.classList.remove('over')); c.classList.add('over'); });
+  g.addEventListener('dragend', () => { from = null; g.querySelectorAll('.drag,.over').forEach(x => x.classList.remove('drag','over')); });
+  g.addEventListener('drop', e => {
+    const c = e.target.closest('.gcell'); if(from === null || !c || c.classList.contains('gadd')) return; e.preventDefault();
+    const to = +c.dataset.i; if(to === from) return;
+    const cur = data.items[idx], [m] = data.items.splice(from, 1); data.items.splice(to, 0, m);
+    idx = data.items.indexOf(cur); save(); from = null; openGrid(); toast('순서를 바꿨어요');
+  });
+  window.addEventListener('resize', () => { if($('gridv').classList.contains('on')) scaleGrid(); });
+}
 function rerenderKeep(){ const y = idx; render(); idx = y; }
 function go(i){ if(i < 0 || i >= data.items.length) return; idx = i; render(); if($('panel').classList.contains('on')) fillPanel(); }
 function move(dir){
@@ -1008,6 +1054,7 @@ if(document.fonts) document.fonts.addEventListener && document.fonts.addEventLis
 
 $('editBtn').onclick = () => openPanel(!$('panel').classList.contains('on'));
 $('liveBtn').onclick = () => setLive(!live);
+if(MODE !== 'home') wireGrid();
 wireLive();
 $('pngBtn').onclick = savePNG;
 $('copyImgBtn').onclick = () => copyImage(false);
@@ -1023,7 +1070,7 @@ if(MODE !== 'home'){
   document.addEventListener('click', () => $('menu').classList.remove('on'));
 }
 document.addEventListener('keydown', e => {
-  if(e.key === 'Escape'){ openPanel(false); $('shot').classList.remove('on'); }
+  if(e.key === 'Escape'){ openPanel(false); $('shot').classList.remove('on'); closeGrid(); }
   if((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'c'){ e.preventDefault(); copyImage(false); return; }
   if(MODE === 'home' || /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName) || document.activeElement.isContentEditable) return;
   if(e.key === 'ArrowLeft') go(idx-1);

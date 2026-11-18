@@ -5,7 +5,7 @@
   --ink:#3A3F4B; --sub:#5D6370; --mute:#8A909C; --card:#FFFFFF; --line:#C9CFD8; --act:#8A909C;
   --ff:"Outfit",sans-serif; --fb:"Noto Sans KR",sans-serif;
   --fw:400; --nw:600; --lh:1.6; --ls:0em; --w:940px; --rad:0px; --ts:1.1; --tw:600; --hl:.25; --pg:0em;
-  --va:center; --ta:left; --bw:1080px; --bh:1080px;
+  --va:center; --ta:left; --bw:1080px; --bh:1080px; --g1:.3em; --g2:1.25em; --g3:1.5em;
 }
 html,body{margin:0;height:100%;overflow:hidden;}
 *{box-sizing:border-box;}
@@ -59,9 +59,8 @@ mark{background:linear-gradient(transparent 58%,color-mix(in srgb,var(--mute) ca
 /* ---- NOVEL (판 소설) ---- */
 .nv{text-align:var(--ta);}
 .nv .tt{font-size:calc(var(--ts) * 1em);font-weight:var(--tw);letter-spacing:-.02em;line-height:1.3;color:var(--ink);word-break:keep-all;}
-.nv .st{font-size:.9em;font-weight:300;color:var(--sub);margin-top:.3em;letter-spacing:-.02em;line-height:1.4;}
-.nv .body{margin-top:1.25em;font-weight:var(--fw);line-height:var(--lh);letter-spacing:var(--ls);word-break:keep-all;overflow-wrap:anywhere;}
-.nv .tt+.body{margin-top:1em;}
+.nv .st{font-size:.9em;font-weight:300;color:var(--sub);margin-top:calc(var(--g1) / .9);letter-spacing:-.02em;line-height:1.4;}
+.nv .body{margin-top:var(--g2);font-weight:var(--fw);line-height:var(--lh);letter-spacing:var(--ls);word-break:keep-all;overflow-wrap:anywhere;}
 .nv .body p{margin:0 0 var(--pg);}
 .nv .body .gap{height:.7em;}
 .nv .body b{font-weight:800;color:var(--ink);}
@@ -75,7 +74,7 @@ mark{background:linear-gradient(transparent 58%,color-mix(in srgb,var(--mute) ca
 .nv .sp.L .tag{color:var(--L);} .nv .sp.R .tag{color:var(--R);}
 .nv.notag .tag{display:none;}
 .nv h2{font-size:1.05em;font-weight:var(--tw);margin:.9em 0 .5em;}
-.src{margin-top:1.5em;font-size:.6em;color:var(--sub);display:flex;align-items:center;gap:.7em;letter-spacing:.02em;}
+.src{margin-top:calc(var(--g3) / .6);font-size:.6em;color:var(--sub);display:flex;align-items:center;gap:.7em;letter-spacing:.02em;}
 .nv .src{justify-content:var(--srcj,flex-start);}
 .src .dash{display:inline-block;width:1.4em;height:1px;background:var(--sub);}
 .src .vb{display:inline-block;width:1px;height:1em;background:var(--line);}
@@ -83,10 +82,10 @@ mark{background:linear-gradient(transparent 58%,color-mix(in srgb,var(--mute) ca
 .src .sl{color:var(--line);margin:0 -.2em;}
 
 /* ---- CHAT (판 채팅) ---- */
-.exh{text-align:center;margin-bottom:1.3em;}
+.exh{text-align:center;margin-bottom:var(--g2);}
 .exh .k{font-family:var(--ff);font-size:.55em;letter-spacing:.2em;color:var(--mute);text-transform:uppercase;}
 .exh .tt{font-weight:var(--tw);font-size:calc(var(--ts) * 1em);margin:.3em 0 .1em;line-height:1.3;letter-spacing:-.01em;word-break:keep-all;}
-.exh .st{font-size:.8em;font-weight:300;color:var(--sub);}
+.exh .st{font-size:.8em;font-weight:300;color:var(--sub);margin-top:calc(var(--g1) / .8);}
 .msg{display:flex;flex-direction:column;align-items:flex-start;margin:0 0 .85em;}
 .msg.R{align-items:flex-end;}
 .who{display:flex;align-items:center;gap:.45em;margin-bottom:.35em;}

@@ -67,11 +67,11 @@ const PRESETS = [
 const SIZES = {'1:1':[1080,1080], '4:5':[1080,1350], '3:4':[1080,1440], '9:16':[1080,1920], '16:9':[1920,1080]};
 const BASE_STYLE = Object.assign({}, PRESETS[0].c, {
   dots:true, fontBody:'Pretendard', fontFrame:'Outfit', ratio:'1:1', va:'center', ta:'left', autofit:true, px2:false,
-  fs:24, fw:400, nw:600, lh:1.6, ls:0, w:940, rad:0, ts:1.1, tw:600, hl:.25, pg:0
+  fs:24, fw:400, nw:600, lh:1.6, ls:0, w:940, rad:0, ts:1.1, tw:600, hl:.25, pg:0, g1:.3, g2:1.25, g3:1.5
 });
 const DEF_STYLE = {
   home:  Object.assign({}, BASE_STYLE, {fs:26, tw:500}),
-  chat:  Object.assign({}, BASE_STYLE, {fs:20, ts:1.5, tw:500, lh:1.7, w:900}),
+  chat:  Object.assign({}, BASE_STYLE, {fs:20, ts:1.5, tw:500, lh:1.7, w:900, g1:.15, g2:1.3, g3:1.2}),
   novel: Object.assign({}, BASE_STYLE, {fs:25, ts:1.05, lh:1.55, ls:-.03, indent:false, dropcap:false, showTag:true})
 };
 const DEF_SITE = {
@@ -193,6 +193,7 @@ function applyStyle(){
   r.setProperty('--fw', s.fw); r.setProperty('--nw', s.nw); r.setProperty('--lh', s.lh); r.setProperty('--ls', s.ls + 'em');
   r.setProperty('--w', s.w + 'px'); r.setProperty('--rad', s.rad + 'px'); r.setProperty('--ts', s.ts); r.setProperty('--tw', s.tw);
   r.setProperty('--hl', s.hl); r.setProperty('--pg', s.pg + 'em');
+  r.setProperty('--g1', s.g1 + 'em'); r.setProperty('--g2', s.g2 + 'em'); r.setProperty('--g3', s.g3 + 'em');
   r.setProperty('--va', s.va === 'top' ? 'flex-start' : s.va === 'bottom' ? 'flex-end' : 'center');
   r.setProperty('--ta', s.ta); r.setProperty('--srcj', s.ta === 'center' ? 'center' : 'flex-start');
   const [W,H] = SIZES[s.ratio]; r.setProperty('--bw', W + 'px'); r.setProperty('--bh', H + 'px');
@@ -420,11 +421,15 @@ const SLIDERS = [
   ['nw','이름·라벨 굵기',100,900,100,''],
   ['lh','줄 간격',1.2,2.6,.05,''],
   ['ls','자간',-.08,.15,.005,'em'],
-  ...(MODE === 'novel' ? [['pg','문단 간격',0,1.5,.05,'em']] : []),
+  ['g1', MODE === 'chat' ? '간격 · 제목 ↔ 부제' : '간격 · 제목 ↔ 부제',0,3,.05,'em'],
+  ['g2', MODE === 'chat' ? '간격 · 제목 ↔ 대화' : '간격 · 부제 ↔ 본문',0,4,.05,'em'],
+  ...(MODE === 'novel' ? [['pg','간격 · 문단 사이',0,1.5,.05,'em']] : []),
+  ['g3', MODE === 'chat' ? '간격 · 대화 ↔ 하단 줄' : '간격 · 본문 ↔ 하단 줄',0,4,.05,'em'],
   ['w','본문 폭',400,1800,10,'px'],
   ['rad','모서리 둥글기',0,28,1,'px'],
   ['hl','형광펜 진하기',0,.6,.01,'']
 ];
+const GAPS = ['g1','g2','pg','g3','lh'];
 const COLORS = [
   ['cL','왼쪽 캐릭터'],['cR','오른쪽 캐릭터'],['bg','판 배경'],['dotc','판 점무늬'],
   ['card', MODE==='chat' ? '말풍선' : '카드·엠블럼'],['ink','본문 글자'],
@@ -507,6 +512,10 @@ function buildPanel(){
           ${SEGS.map(s => `<div class="f"><span>${s[1]}</span><div class="seg" data-seg="${s[0]}">${s[2].map(o => `<button data-v="${o[0]}">${o[1]}</button>`).join('')}</div></div>`).join('')}
           <label class="chk"><input type="checkbox" data-style="autofit"> 글이 길면 판에 맞게 글자 자동 축소</label>
         </div>
+        <div class="sec"><div class="sh">간격</div>
+          ${SLIDERS.filter(s => GAPS.includes(s[0])).map(s => `<label class="f"><span>${s[1].replace('간격 · ','')}<output data-out="${s[0]}"></output></span><input type="range" data-style="${s[0]}" min="${s[2]}" max="${s[3]}" step="${s[4]}"></label>`).join('')}
+          <div class="btns"><button class="btn" id="gapReset">간격만 기본값으로</button></div>
+        </div>
         <div class="sec"><div class="sh">색 테마</div>
           <div class="presets">${PRESETS.map((p,i) => `<button class="pre" data-pre="${i}"><span class="sw"><i style="background:${p.c.bg}"></i><i style="background:${p.c.card}"></i><i style="background:${p.c.cL}"></i><i style="background:${p.c.cR}"></i><i style="background:${p.c.ink}"></i></span>${p.n}</button>`).join('')}</div>
         </div>
@@ -519,7 +528,7 @@ function buildPanel(){
           <label class="f"><span>프레임·라벨 (영문)</span><select data-style="fontFrame">${fontOpts('en', st.fontFrame)}</select></label>
         </div>
         <div class="sec"><div class="sh">크기·굵기</div>
-          ${SLIDERS.map(s => `<label class="f"><span>${s[1]}<output data-out="${s[0]}"></output></span><input type="range" data-style="${s[0]}" min="${s[2]}" max="${s[3]}" step="${s[4]}"></label>`).join('')}
+          ${SLIDERS.filter(s => !GAPS.includes(s[0])).map(s => `<label class="f"><span>${s[1]}<output data-out="${s[0]}"></output></span><input type="range" data-style="${s[0]}" min="${s[2]}" max="${s[3]}" step="${s[4]}"></label>`).join('')}
           <div class="help" style="margin-top:4px">폰트마다 들어 있는 굵기가 달라서, 어떤 폰트는 몇 단계에서만 굵기가 바뀌어요.</div>
           ${MODE === 'novel' ? `
           <label class="chk"><input type="checkbox" data-style="indent"> 문단 첫 줄 들여쓰기</label>
@@ -617,6 +626,7 @@ function wirePanel(){
   P.querySelectorAll('[data-pre]').forEach(b => b.onclick = () => { Object.assign(data.style, PRESETS[+b.dataset.pre].c); save(); applyStyle(); fillPanel(); });
   $('closeBtn').onclick = () => openPanel(false);
   $('pngBtn2').onclick = savePNG;
+  $('gapReset').onclick = () => { GAPS.forEach(k => data.style[k] = DEF_STYLE[MODE][k]); save(); applyStyle(); fillPanel(); toast('간격을 기본값으로 되돌렸어요'); };
   $('copyBtn2').onclick = () => copyImage(false);
   confirmBtn($('styleReset'), '한 번 더 누르면 되돌려요', () => { data.style = Object.assign({}, DEF_STYLE[MODE]); save(); applyStyle(); render(); fillPanel(); toast('스타일을 기본값으로 되돌렸어요'); });
 
